@@ -37,6 +37,7 @@
         "onCommand:leetcode.searchProblem",
         "onCommand:leetcode.testSolution",
         "onCommand:leetcode.submitSolution",
+        "onCommand:leetcode.debugSolution",
         "onCommand:leetcode.switchDefaultLanguage",
         "onView:leetCodeExplorer"
     ],
@@ -122,6 +123,11 @@
             {
                 "command": "leetcode.submitSolution",
                 "title": "Submit to LeetCode",
+                "category": "LeetCode"
+            },
+            {
+                "command": "leetcode.debugSolution",
+                "title": "Local Debugging",
                 "category": "LeetCode"
             },
             {
@@ -270,6 +276,10 @@
                 {
                     "command": "leetcode.previewProblem",
                     "group": "leetcode@4"
+                },
+                {
+                    "command": "leetcode.debugSolution",
+                    "group": "leetcode@5"
                 }
             ]
         },
@@ -626,7 +636,8 @@
                         "type": "array",
                         "default": [
                             "submit",
-                            "test"
+                            "test",
+                            "debug"
                         ],
                         "scope": "application",
                         "items": {
@@ -635,7 +646,8 @@
                                 "submit",
                                 "test",
                                 "solution",
-                                "description"
+                                "description",
+                                "debug"
                             ]
                         },
                         "description": "Customize the shorcuts in editors."

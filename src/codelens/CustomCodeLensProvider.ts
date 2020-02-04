@@ -56,6 +56,14 @@ export class CustomCodeLensProvider implements vscode.CodeLensProvider {
             }));
         }
 
+        if (shortcuts.indexOf("debug") >= 0) {
+            codeLens.push(new vscode.CodeLens(range, {
+                title: "Debug",
+                command: "leetcode.debugSolution",
+                arguments: [document.uri],
+            }));
+        }
+
         if (shortcuts.indexOf("solution") >= 0) {
             codeLens.push(new vscode.CodeLens(range, {
                 title: "Solution",

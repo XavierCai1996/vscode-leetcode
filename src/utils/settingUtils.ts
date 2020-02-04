@@ -16,5 +16,5 @@ export function getWorkspaceFolder(): string {
 }
 
 export function getEditorShortcuts(): string[] {
-    return getWorkspaceConfiguration().get<string[]>("editor.shortcuts", ["submit", "test"]);
+    return getWorkspaceConfiguration().get<string[]>("editor.shortcuts", ["submit", "test", "debug"]);
 }
