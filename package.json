@@ -616,7 +616,7 @@
                         "default": {
                             "default": {
                                 "folder": "",
-                                "filename": "${id}.${kebab-case-name}.${ext}"
+                                "filename": "${id}.${ext}"
                             }
                         }
                     },
