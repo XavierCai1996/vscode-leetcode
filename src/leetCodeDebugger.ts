@@ -36,13 +36,28 @@ class LeetCodeDebugger {
 
         const debuggerInstance = new ctor(solutionFilePath, codeTemplate);
         try {
-            debuggerInstance.init();
-            vscode.debug.onDidTerminateDebugSession(() => { debuggerInstance.dispose(); });
+            async function switchEditor(filePath: string): Promise<vscode.TextEditor> {
+                const textDocument: vscode.TextDocument = await vscode.workspace.openTextDocument(filePath);
+                return await vscode.window.showTextDocument(textDocument, undefined, true);
+            }
+
+            const debugEntry: string | undefined = await debuggerInstance.init();
+            let entryEditor: vscode.TextEditor | undefined;
+            if (debugEntry) {
+                entryEditor = await switchEditor(debugEntry);
+            }
+
+            vscode.debug.onDidTerminateDebugSession(async () => { await debuggerInstance.dispose(); });
             await this.launch();
+
+            await switchEditor(solutionFilePath);
+            if (entryEditor) {
+                entryEditor.hide();
+            }
         }
         catch {
             vscode.window.showInformationMessage('Failed to start debugging');
-            debuggerInstance.dispose();
+            await debuggerInstance.dispose();
         }
     }
 

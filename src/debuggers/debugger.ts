@@ -2,6 +2,6 @@
 
 export abstract class Debugger {
     constructor(protected solutionFilePath: string, protected codeTemplate: string) { }
-    abstract init(): void;
-    abstract dispose(): void;
+    public abstract async init(): Promise<string | undefined>;
+    public abstract async dispose(): Promise<void>;
 }
