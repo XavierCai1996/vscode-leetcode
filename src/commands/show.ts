@@ -18,7 +18,6 @@ import * as wsl from "../utils/wslUtils";
 import { leetCodePreviewProvider } from "../webview/leetCodePreviewProvider";
 import { leetCodeSolutionProvider } from "../webview/leetCodeSolutionProvider";
 import * as list from "./list";
-import { print } from "util";
 
 export async function previewProblem(input: IProblem | vscode.Uri, isSideMode: boolean = false): Promise<void> {
     let node: IProblem;
@@ -104,7 +103,7 @@ export async function showSolution(input: LeetCodeNode | vscode.Uri): Promise<vo
     }
 }
 
-async function fetchProblemLanguage(): Promise<string | undefined> {
+export async function fetchProblemLanguage(): Promise<string | undefined> {
     const leetCodeConfig: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("leetcode");
     let defaultLanguage: string | undefined = leetCodeConfig.get<string>("defaultLanguage");
     if (defaultLanguage && languages.indexOf(defaultLanguage) < 0) {
