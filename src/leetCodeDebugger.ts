@@ -59,7 +59,9 @@ class LeetCodeDebugger {
 
             vscode.debug.onDidTerminateDebugSession(async () => { await afterDebugging(); });
             await solutionEditor.document.save();
-            await this.launch();
+            if (!await this.launch()) {
+                await afterDebugging();
+            }
 
             if (entryEditor) {
                 entryEditor.hide();
@@ -71,17 +73,17 @@ class LeetCodeDebugger {
         }
     }
 
-    private async launch(): Promise<void> {
+    private async launch(): Promise<boolean> {
         let textEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
         if (!textEditor) {
-            return;
+            return false;
         }
 
         const config: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("launch", textEditor.document.uri);
         const folder: vscode.WorkspaceFolder | undefined = vscode.workspace.getWorkspaceFolder(textEditor.document.uri);
         const values: [{}] | undefined = config.get<[{}]>("configurations");
         if (!folder || !values) {
-            return;
+            return false;
         }
 
         const picks: Array<IQuickItemEx<string>> = [];
@@ -99,24 +101,24 @@ class LeetCodeDebugger {
             }
         }
         if (picks.length <= 0) {
-            return;
+            return false;
         }
 
         let launchIndex: string = picks[0].value;
         if (picks.length > 1) { // pick one
             const choice: IQuickItemEx<string> | undefined = await vscode.window.showQuickPick(picks);
             if (!choice) {
-                return;
+                return false;
             }
             launchIndex = choice.value;
         }
 
         // error!
         if (!(launchIndex in values)) {
-            return;
+            return false;
         }
 
-        await vscode.debug.startDebugging(folder, values[launchIndex]["name"]);
+        return await vscode.debug.startDebugging(folder, values[launchIndex]["name"]);
     }
 }
 
