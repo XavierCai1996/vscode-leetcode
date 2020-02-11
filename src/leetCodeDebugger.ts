@@ -67,8 +67,8 @@ class LeetCodeDebugger {
                 entryEditor.hide();
             }
         }
-        catch {
-            vscode.window.showInformationMessage('Failed to start debugging');
+        catch (error) {
+            vscode.window.showInformationMessage(`Failed to start debugging: ${error}`);
             await afterDebugging();
         }
     }
