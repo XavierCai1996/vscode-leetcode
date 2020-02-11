@@ -6,24 +6,41 @@ import * as path from "path";
 import { Debugger } from "./debugger";
 
 export class CppDebugger extends Debugger {
+    private solutionFilePath: string;
     private definitionFilePath: string;
     private mainFilePath: string;
 
-    public async init(): Promise<string | undefined> {
-        if (!this.solutionFilePath || !this.codeTemplate) {
+    public async init(solutionEditor: vscode.TextEditor, codeTemplate: string): Promise<string | undefined> {
+        if (!solutionEditor || solutionEditor.document.isClosed || !codeTemplate) {
             return;
         }
 
+        this.solutionFilePath = solutionEditor.document.uri.fsPath;
         const folder: string = path.dirname(this.solutionFilePath);
         this.definitionFilePath = path.join(folder, "definition.h");
         this.mainFilePath = path.join(folder, "leetcode-cpp-debug.cpp");
 
+        // insert include code to solution file
+        const insertContent: string = "#include \"" + path.basename(this.definitionFilePath) + "\"\n";
+        const editResult: boolean = await solutionEditor.edit((editor: vscode.TextEditorEdit) => editor.insert(new vscode.Position(0, 0), insertContent));
+        if (!editResult) {
+            return;
+        }
+
         await this.genDefinitionFile();
         await this.genMainFile();
+
         return this.mainFilePath;
     }
 
-    public async dispose(): Promise<void> { }
+    public async dispose(solutionEditor: vscode.TextEditor): Promise<void> {
+        // remove inserted include code
+        if (solutionEditor.document.isClosed) {
+            return;
+        }
+        const result: boolean = await solutionEditor.edit((editor: vscode.TextEditorEdit) => { editor.delete(new vscode.Range(new vscode.Position(0, 0), new vscode.Position(1, 0))); });
+        vscode.window.showInformationMessage(`${result}`);
+    }
 
     private async genDefinitionFile(): Promise<void> {
         if (!this.definitionFilePath) {

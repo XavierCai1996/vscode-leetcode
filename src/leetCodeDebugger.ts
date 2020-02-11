@@ -2,6 +2,7 @@
 
 import * as vscode from "vscode";
 import * as path from "path";
+import * as fse from "fs-extra";
 import { IQuickItemEx, langExt } from "./shared";
 import { fetchProblemLanguage } from "./commands/show";
 import { leetCodeExecutor } from "./leetCodeExecutor";
@@ -27,37 +28,46 @@ class LeetCodeDebugger {
         }
         const problemId: string = matches[1];
 
-        const codeTemplate: string = await leetCodeExecutor.getCodeTemplate(problemId, language, false);
         const ctor: IDebuggerConstructor | undefined = getDebugger(language);
         if (!ctor) {
             vscode.window.showInformationMessage(`Unsupport language: ${language}`);
             return;
         }
 
-        const debuggerInstance = new ctor(solutionFilePath, codeTemplate);
+        const debuggerInstance = new ctor();
+        async function switchEditor(filePath: string): Promise<vscode.TextEditor> {
+            const textDocument: vscode.TextDocument = await vscode.workspace.openTextDocument(filePath);
+            return await vscode.window.showTextDocument(textDocument, undefined, true);
+        }
+        async function afterDebugging(): Promise<void> {
+            const editor = await switchEditor(solutionFilePath);
+            await debuggerInstance.dispose(editor);
+            await editor.document.save();
+        }
         try {
-            async function switchEditor(filePath: string): Promise<vscode.TextEditor> {
-                const textDocument: vscode.TextDocument = await vscode.workspace.openTextDocument(filePath);
-                return await vscode.window.showTextDocument(textDocument, undefined, true);
+            const solutionEditor: vscode.TextEditor = await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(solutionFilePath));
+            const codeTemplate: string = await leetCodeExecutor.getCodeTemplate(problemId, language, false);
+            const debugEntry: string | undefined = await debuggerInstance.init(solutionEditor, codeTemplate);
+            if (!debugEntry || !fse.pathExists(debugEntry)) {
+                return;
             }
 
-            const debugEntry: string | undefined = await debuggerInstance.init();
             let entryEditor: vscode.TextEditor | undefined;
             if (debugEntry) {
                 entryEditor = await switchEditor(debugEntry);
             }
 
-            vscode.debug.onDidTerminateDebugSession(async () => { await debuggerInstance.dispose(); });
+            vscode.debug.onDidTerminateDebugSession(async () => { await afterDebugging(); });
+            await solutionEditor.document.save();
             await this.launch();
 
-            await switchEditor(solutionFilePath);
             if (entryEditor) {
                 entryEditor.hide();
             }
         }
         catch {
             vscode.window.showInformationMessage('Failed to start debugging');
-            await debuggerInstance.dispose();
+            await afterDebugging();
         }
     }
 

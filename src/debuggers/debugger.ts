@@ -1,7 +1,10 @@
 // Licensed under the MIT license.
 
+import * as vscode from "vscode"
+
 export abstract class Debugger {
-    constructor(protected solutionFilePath: string, protected codeTemplate: string) { }
-    public abstract async init(): Promise<string | undefined>;
-    public abstract async dispose(): Promise<void>;
+    // return [file path] to start debugging, [undefined] to give up debugging
+    public abstract async init(solutionEditor: vscode.TextEditor, codeTemplate: string): Promise<string | undefined>;
+    // dispose after debugging
+    public abstract async dispose(solutionEditor: vscode.TextEditor): Promise<void>;
 }
