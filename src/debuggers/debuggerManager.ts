@@ -4,7 +4,7 @@ import { Debugger } from "./debugger"
 import { CppDebugger } from "./cppDebugger"
 
 export interface IDebuggerConstructor {
-    new(): Debugger
+    new(problemId: string, codeTemplate: string): Debugger
 }
 
 export function getDebugger(language: string): IDebuggerConstructor | undefined {

@@ -28,8 +28,8 @@ export class CppDebugger extends Debugger {
     private definitionFilePath: string;
     private mainFilePath: string;
 
-    public async init(solutionEditor: vscode.TextEditor, codeTemplate: string): Promise<string | undefined> {
-        if (!solutionEditor || solutionEditor.document.isClosed || !codeTemplate) {
+    public async init(solutionEditor: vscode.TextEditor): Promise<string | undefined> {
+        if (!solutionEditor || solutionEditor.document.isClosed || !this.codeTemplate) {
             return;
         }
 
@@ -46,7 +46,7 @@ export class CppDebugger extends Debugger {
         }
 
         await this.genDefinitionFile();
-        await this.genMainFile(codeTemplate);
+        await this.genMainFile(this.codeTemplate);
 
         return this.mainFilePath;
     }

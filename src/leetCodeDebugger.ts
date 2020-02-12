@@ -34,7 +34,8 @@ class LeetCodeDebugger {
             return;
         }
 
-        const debuggerInstance = new ctor();
+        const codeTemplate: string = await leetCodeExecutor.getCodeTemplate(problemId, language, false);
+        const debuggerInstance = new ctor(problemId, codeTemplate);
         async function switchEditor(filePath: string): Promise<vscode.TextEditor> {
             const textDocument: vscode.TextDocument = await vscode.workspace.openTextDocument(filePath);
             return await vscode.window.showTextDocument(textDocument, undefined, true);
@@ -46,8 +47,7 @@ class LeetCodeDebugger {
         }
         try {
             const solutionEditor: vscode.TextEditor = await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(solutionFilePath));
-            const codeTemplate: string = await leetCodeExecutor.getCodeTemplate(problemId, language, false);
-            const debugEntry: string | undefined = await debuggerInstance.init(solutionEditor, codeTemplate);
+            const debugEntry: string | undefined = await debuggerInstance.init(solutionEditor);
             if (!debugEntry || !fse.pathExists(debugEntry)) {
                 return;
             }
