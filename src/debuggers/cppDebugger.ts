@@ -68,9 +68,9 @@ export class CppDebugger extends Debugger {
         }
 
         const classPattern: RegExp = /class (Solution|[\w\d]+) {/;
-        const initPattern: RegExp = / *([\w\d]+) *\((([, ]*[\w\d<>\*]+[ \*&]+[\w\d]+)*)\)[ \{\}]*/;
-        const funcPattern: RegExp = / *([\w\d<>\*]+) +([\w\d]+) *\((([, ]*[\w\d<>\*]+[ \*&]+[\w\d]+)*)\)[ \{\}]*/;
-        const argPattern: RegExp = / *([\w\d<>\*]+ *\*?) *&? *([\w\d]+) */;
+        const initPattern: RegExp = / *([\w\d]+) *\(((?:[, ]*[\w\d<>\*]+[ \*&]+[\w\d]+)*)\)[ \{\}]*/;
+        const funcPattern: RegExp = / *([\w\d<>\*]+) +([\w\d]+) *\(((?:[, ]*[\w\d<>\*]+[ \*&]+[\w\d]+)*)\)[ \{\}]*/;
+        const argPattern: RegExp = / *([\w\d<>\*]+(?: *\*)?) *&? *([\w\d]+) */;
 
         function getArgMetaInfo(arg: string): IArgumentMetaInfo {
             const match: RegExpExecArray | null = argPattern.exec(arg);
@@ -88,9 +88,11 @@ export class CppDebugger extends Debugger {
                     args: [],
                     type: type
                 };
-                const values = args.split(',');
-                for (const value of values) {
-                    ret.args.push(getArgMetaInfo(value));
+                if (args.replace(" ", "").length > 0) {
+                    const values = args.split(',');
+                    for (const value of values) {
+                        ret.args.push(getArgMetaInfo(value));
+                    }
                 }
                 return ret;
             }
@@ -239,18 +241,26 @@ export class CppDebugger extends Debugger {
             istream* is_; \n \
             MultiOS* os_; \n \
             int level_; \n \
+            bool isDesign_; \n \
             void startInput() { \n \
                 ++level_; \n \
             } \n \
             FormatStream& endInput() { \n \
                 if (--level_ == 0) { \n \
-                    char c = is_->get(); \n \
-                    assert_msg(c == \'\\n\' || c == EOF, join(inputFormatError, \"bad end of line.\")); \n \
+                    char c = is_->peek(); \n \
+                    if (isDesign_) { \n \
+                        if (c == \'\\n\') is_->get(); \n \
+                    } \n \
+                    else { \n \
+                        assert_msg(c == \'\\n\' || c == EOF, join(inputFormatError, \"bad end of line.\")); \n \
+                        is_->get(); \n \
+                    } \n \
                 } \n \
                 return *this; \n \
             } \n \
         public: \n \
-            FormatStream(istream *is, MultiOS *os) : is_(is), os_(os), level_(0) {} \n \
+            FormatStream(istream *is, MultiOS *os) : is_(is), os_(os), level_(0), isDesign_(false) {} \n \
+            void SetIsDesign(bool isDesign) { isDesign_ = isDesign; } \n \
             template <typename _T> \n \
             FormatStream& operator << (const _T& v) { *os_ << v; return *this; } \n \
             FormatStream& operator << (ostream& (*v)(ostream&)) { *os_ << v; return *this; } \n \
@@ -477,6 +487,8 @@ export class CppDebugger extends Debugger {
             } \n \
             catch (StringException e) { \n \
                 cerr << e.what() << endl; \n \
+                cin.clear(); \n \
+                cin.get(); \n \
             } \n \
             return 0; \n \
         } \n \
@@ -486,34 +498,119 @@ export class CppDebugger extends Debugger {
         if (meta.name.length <= 0) {
             throw "Invalid meta info.";
         }
-        if (meta.isDesignProblem || meta.isInteractiveProblem) {
+        if (meta.isInteractiveProblem) {
             throw "Unsupported problem type.";
-        }
-        if (meta.functions.length > 1) {
-            throw "Too much functions in class [Solution].";
         }
         if (meta.functions.length <= 0) {
             throw "Can not find the entry function.";
         }
 
-        const func = meta.functions[0];
-        if (func.type == "void") {
-            throw "Invalid return type.";
+        function genArgsCode(func: IFunctionMetaInfo): string {
+            const names: string[] = [];
+            for (const arg of func.args) {
+                names.push(arg.name);
+            }
+            return names.join(", ");
+        }
+        function genInputCode(func: IFunctionMetaInfo): string {
+            if (func.args.length <= 0) {
+                return "";
+            }
+            const declarationCode: string[] = [];
+            const tupleCode: string[] = [];
+            for (const arg of func.args) {
+                declarationCode.push(arg.type + " " + arg.name + "; \n");
+                tupleCode.push(arg.type + "&");
+            }
+            return declarationCode.join("")
+                + "tuple<" + tupleCode.join(", ") + "> __tuple__value { "
+                + genArgsCode(func) + " }; \n"
+                + "fs >> __tuple__value; \n";
         }
 
         output("void test(FormatStream& fs) { \n");
-        // declaration and input
-        for (const arg of func.args) {
-            output(arg.type + " " + arg.name + "; \n");
-            output("fs >> " + arg.name + "; \n");
+        if (!meta.isDesignProblem) {
+            if (meta.functions.length > 1) {
+                throw "Too much functions in class [Solution].";
+            }
+            const func = meta.functions[0];
+            if (func.type == "void") {
+                throw "Invalid return type.";
+            }
+
+            // declaration and input
+            for (const arg of func.args) {
+                output(arg.type + " " + arg.name + "; \n");
+                output("fs >> " + arg.name + "; \n");
+            }
+            // call the function
+            output("Solution solution; \n");
+            output("fs << solution." + func.name + "(" + genArgsCode(func) + ") << endl; \n");
         }
-        // call the function
-        output("Solution solution; \n");
-        const names: string[] = [];
-        for (const arg of func.args) {
-            names.push(arg.name);
+        else { //design problem
+            output(" \n \
+                fs.SetIsDesign(true); \n \
+                vector<string> functions; \n \
+                fs >> functions; \n \
+                auto check = [&fs] (char e) -> void {  \n \
+                    char r; fs >> r; \n \
+                    assert_msg(e == r, join(inputFormatError, \"design problem.\")); \n \
+                }; \n \
+                if (functions.size() == 0) { \n \
+                    check(\'[\'); \n \
+                    check(\']\'); \n \
+                    fs << \"[]\" << endl; \n \
+                    return; \n \
+                } \n \
+                check(\'[\'); \n \
+                fs << \'[\'; \n \
+                assert_msg(functions.front() == \""
+                + meta.name + "\", \n \
+                    join(inputFormatError, \"the first function should be constructor.\")); \n \
+            ");
+            const ctor: IFunctionMetaInfo | undefined = meta.functions.find((value: IFunctionMetaInfo) => value.name == meta.name && value.type == "void");
+            if (ctor && ctor.args.length > 0) {
+                output(genInputCode(ctor)
+                    + meta.name + " solution("
+                    + genArgsCode(ctor)
+                    + "); \n");
+            }
+            else {
+                output("vector<int> dummy; \n");
+                output("fs >> dummy; \n");
+                output(meta.name + " solution; \n");
+            }
+            output(" \n \
+                fs << null; \n \
+                for (int i = 1, n = functions.size(); i < n; ++i) { \n \
+                    check(\',\'); \n \
+                    fs << \',\'; \n \
+                    if (functions[i] == \"\") throw functions; \n \
+                #define CASE(func) else if (functions[i] == #func) \n \
+            ");
+            for (const func of meta.functions) {
+                if (func.name == meta.name) {
+                    continue;
+                }
+                output("CASE(" + func.name + ") { \n");
+                output(genInputCode(func));
+                const callCode: string = "solution." + func.name + "(" + genArgsCode(func) + "); \n";
+                if (func.type == "void") {
+                    output(callCode + "fs << null; \n");
+                }
+                else {
+                    output("fs << " + callCode + "; \n");
+                }
+                output("} \n");
+            }
+            output(" \n \
+                #undef CASE \n \
+                    else throw functions; \n \
+                } \n \
+                check(\']\'); \n \
+                fs << \']\' << endl; \n \
+            ")
         }
-        output("fs << solution." + func.name + "(" + names.join(", ") + ") << endl; \n");
         output("} \n");
 
         await fse.fsync(fp);
